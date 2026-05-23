@@ -69,21 +69,23 @@ exports.register = async (req, res) => {
       );
     } else {
       await client.query(
-        'INSERT INTO dentists (user_id, full_name, npi_license, specialty, practice_name, phone, address, years_of_experience, education, latitude, longitude, image_url, bio) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)',
+        'INSERT INTO dentists (user_id, full_name, npi_license, specialty, practice_name, phone, address, state, years_of_experience, education, latitude, longitude, image_url, bio, consultation_fee) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)',
         [
           userId,
           profileData.name,
           profileData.license,
-          profileData.specialty || null,
+          profileData.specialty || null, 
           profileData.practiceName || null,
           profileData.phone || null,
           profileData.address || null,
+          profileData.state || null,
           profileData.experience || null,
           profileData.education || null,
           profileData.latitude || null,
           profileData.longitude || null,
           profileData.image_url || null,
           profileData.bio || null,
+          profileData.consultation_fee || 0,
         ]
       );
 
@@ -117,15 +119,19 @@ exports.register = async (req, res) => {
 
 exports.login = async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password  , role} = req.body;
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required' });
     }
 
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     if (result.rows.length === 0) return res.status(401).json({ error: 'Invalid credentials' });
-
+    
     const user = result.rows[0];
+    console.log(user.role , " ", role)
+    if(user.role != role)
+      return res.status(401).json({ error: 'Invalid credentials' });
+    
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 

@@ -45,7 +45,9 @@ CREATE TABLE dentists (
     latitude DECIMAL(10, 8),   -- Sourced from the interactive map during registration
     longitude DECIMAL(11, 8),  -- Sourced from the interactive map during registration
     image_url TEXT,
-    bio TEXT
+    state varchar(50),
+    bio TEXT,
+    consultation_fee DECIMAL(10,2) DEFAULT 0
 );
 
 -- ==========================================
@@ -82,9 +84,13 @@ CREATE TABLE appointments (
     appointment_date DATE NOT NULL,
     start_time TIME NOT NULL,
     status appointment_status DEFAULT 'PENDING',
-    treatment_type VARCHAR(255),
-    room VARCHAR(50),
-    notes TEXT,
+    notes TEXT DEFAULT '',
+    clinical_notes TEXT DEFAULT '',
+    diagnosis TEXT DEFAULT '',
+    prescription TEXT DEFAULT '',
+    rating INT CHECK (rating BETWEEN 1 AND 5),
+    rating_comment TEXT,
+    rated_at TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

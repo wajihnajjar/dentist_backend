@@ -1,0 +1,4 @@
+ALTER TABLE appointments
+  ADD COLUMN rating INT CHECK (rating BETWEEN 1 AND 5),
+  ADD COLUMN rating_comment TEXT,
+  ADD COLUMN rated_at TIMESTAMP WITH TIME ZONE; 

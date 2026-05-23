@@ -18,7 +18,15 @@ const authenticate = (req, res, next) => {
 
 const requireRole = (role) => (req, res, next) => {
   if (!req.user || req.user.role !== role) {
-    return res.status(403).json({ error: 'Forbidden' });
+    return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
+  }
+  next();
+};
+
+// Allow multiple roles
+const requireAnyRole = (roles) => (req, res, next) => {
+  if (!req.user || !roles.includes(req.user.role)) {
+    return res.status(403).json({ error: 'Forbidden: Insufficient permissions' });
   }
   next();
 };
@@ -26,4 +34,5 @@ const requireRole = (role) => (req, res, next) => {
 module.exports = {
   authenticate,
   requireRole,
+  requireAnyRole,
 };

@@ -31,7 +31,6 @@ exports.getCurrentUser = async (req, res) => {
         'SELECT day_of_week, start_time, end_time FROM dentist_schedules WHERE dentist_id = $1 ORDER BY day_of_week',
         [userId]
       );
-
       return res.json({
         ...user,
         profile: {
