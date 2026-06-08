@@ -49,6 +49,9 @@ app.put('/api/dentists/me/schedules', authenticate, requireRole('DENTIST'), dent
 app.post('/api/dentists/me/blocked-dates', authenticate, requireRole('DENTIST'), appointmentController.blockDate);
 app.delete('/api/dentists/me/blocked-dates/:date', authenticate, requireRole('DENTIST'), appointmentController.unblockDate);
 
+// Patient profile update - only patients can modify their own profile
+app.put('/api/patients/me', authenticate, requireRole('PATIENT'), userController.updateProfile);
+
 // User profile - accessible to both, but returns role-specific data
 app.get('/api/users/me', authenticate, userController.getCurrentUser);
 
