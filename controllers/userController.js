@@ -24,7 +24,7 @@ exports.getCurrentUser = async (req, res) => {
       );
     } else {
       profileResult = await pool.query(
-        'SELECT full_name, npi_license, specialty, practice_name, phone, address, years_of_experience, education, latitude, longitude, image_url, bio FROM dentists WHERE user_id = $1',
+        'SELECT full_name, npi_license, specialty, practice_name, phone, address, years_of_experience, education, latitude, longitude, image_url, bio , * FROM dentists WHERE user_id = $1',
         [userId]
       );
 

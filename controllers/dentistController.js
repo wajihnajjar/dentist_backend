@@ -1,4 +1,5 @@
 const pool = require('../db');
+const bcrypt = require('bcryptjs');
 
 const normalizeTime = (time) => {
   if (!time) return null;
@@ -256,82 +257,156 @@ exports.updateSchedules = async (req, res) => {
 
 exports.updateProfile = async (req, res) => {
   const dentistId = req.user.id;
-  const { address, state, practice_name, phone, bio, image_url, years_of_experience, education, specialty, latitude, longitude, consultation_fee } = req.body;
+  const {
+    full_name,
+    address,
+    state,
+    practice_name,
+    phone,
+    bio,
+    image_url,
+    years_of_experience,
+    education,
+    specialty,
+    latitude,
+    longitude,
+    consultation_fee,
+    email,
+    current_password,
+    new_password,
+  } = req.body;
+  console.log(specialty , " ",state)
 
-  // Build dynamic update query
-  const updates = [];
-  const values = [];
-  let paramIndex = 1;
+  const profileFieldsProvided = full_name !== undefined || address !== undefined || state !== undefined || practice_name !== undefined || phone !== undefined || bio !== undefined || image_url !== undefined || years_of_experience !== undefined || education !== undefined || specialty !== undefined || latitude !== undefined || longitude !== undefined || consultation_fee !== undefined;
+  const passwordChangeProvided = new_password !== undefined;
 
-  if (address !== undefined) {
-    updates.push(`address = $${paramIndex++}`);
-    values.push(address);
-  }
-  if (state !== undefined) {
-    updates.push(`state = $${paramIndex++}`);
-    values.push(state);
-  }
-  if (practice_name !== undefined) {
-    updates.push(`practice_name = $${paramIndex++}`);
-    values.push(practice_name);
-  }
-  if (phone !== undefined) {
-    updates.push(`phone = $${paramIndex++}`);
-    values.push(phone);
-  }
-  if (bio !== undefined) {
-    updates.push(`bio = $${paramIndex++}`);
-    values.push(bio);
-  }
-  if (image_url !== undefined) {
-    updates.push(`image_url = $${paramIndex++}`);
-    values.push(image_url);
-  }
-  if (years_of_experience !== undefined) {
-    updates.push(`years_of_experience = $${paramIndex++}`);
-    values.push(years_of_experience);
-  }
-  if (education !== undefined) {
-    updates.push(`education = $${paramIndex++}`);
-    values.push(education);
-  }
-  if (specialty !== undefined) {
-    updates.push(`specialty = $${paramIndex++}`);
-    values.push(specialty);
-  }
-  if (latitude !== undefined) {
-    updates.push(`latitude = $${paramIndex++}`);
-    values.push(latitude);
-  }
-  if (longitude !== undefined) {
-    updates.push(`longitude = $${paramIndex++}`);
-    values.push(longitude);
-  }
-  if (consultation_fee !== undefined) {
-    updates.push(`consultation_fee = $${paramIndex++}`);
-    values.push(consultation_fee);
+  if (!profileFieldsProvided && email === undefined && !passwordChangeProvided) {
+    return res.status(400).json({ error: 'At least one profile field, email, or password must be provided to update' });
   }
 
-  if (updates.length === 0) {
-    return res.status(400).json({ error: 'No fields to update' });
+  if (passwordChangeProvided && !current_password) {
+    return res.status(400).json({ error: 'Current password is required to change password' });
   }
-  values.push(dentistId);
 
+  const client = await pool.connect();
   try {
-    const query = `UPDATE dentists SET ${updates.join(', ')} WHERE user_id = $${paramIndex} RETURNING user_id, full_name, practice_name, phone, address, state, bio, image_url, years_of_experience, education, specialty, latitude, longitude`;
-    
-    const result = await pool.query(query, values);
+    await client.query('BEGIN');
 
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Dentist profile not found' });
+    let profileResult;
+    let updatedEmail;
+
+    if (profileFieldsProvided) {
+      const updates = [];
+      const values = [];
+      let paramIndex = 1;
+
+      if (full_name !== undefined) {
+        updates.push(`full_name = $${paramIndex++}`);
+        values.push(full_name);
+      }
+      if (address !== undefined) {
+        updates.push(`address = $${paramIndex++}`);
+        values.push(address);
+      }
+      if (state !== undefined) {
+        updates.push(`state = $${paramIndex++}`);
+        values.push(state);
+      }
+      if (practice_name !== undefined) {
+        updates.push(`practice_name = $${paramIndex++}`);
+        values.push(practice_name);
+      }
+      if (phone !== undefined) {
+        updates.push(`phone = $${paramIndex++}`);
+        values.push(phone);
+      }
+      if (bio !== undefined) {
+        updates.push(`bio = $${paramIndex++}`);
+        values.push(bio);
+      }
+      if (image_url !== undefined) {
+        updates.push(`image_url = $${paramIndex++}`);
+        values.push(image_url);
+      }
+      if (years_of_experience !== undefined) {
+        updates.push(`years_of_experience = $${paramIndex++}`);
+        values.push(years_of_experience);
+      }
+      if (education !== undefined) {
+        updates.push(`education = $${paramIndex++}`);
+        values.push(education);
+      }
+      if (specialty !== undefined) {
+        updates.push(`specialty = $${paramIndex++}`);
+        values.push(specialty);
+      }
+      if (latitude !== undefined) {
+        updates.push(`latitude = $${paramIndex++}`);
+        values.push(latitude);
+      }
+      if (longitude !== undefined) {
+        updates.push(`longitude = $${paramIndex++}`);
+        values.push(longitude);
+      }
+      if (consultation_fee !== undefined) {
+        updates.push(`consultation_fee = $${paramIndex++}`);
+        values.push(consultation_fee);
+      }
+
+      values.push(dentistId);
+      const query = `UPDATE dentists SET ${updates.join(', ')} WHERE user_id = $${paramIndex} RETURNING user_id, full_name, practice_name, phone, address, state, bio, image_url, years_of_experience, education, specialty, latitude, longitude, consultation_fee`;
+      const result = await client.query(query, values);
+
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'Dentist profile not found' });
+      }
+
+      profileResult = result.rows[0];
     }
 
-    return res.json({
-      message: 'Profile updated successfully',
-      profile: result.rows[0]
-    });
+    if (email !== undefined) {
+      const existingEmail = await client.query('SELECT id FROM users WHERE email = $1 AND id != $2', [email, dentistId]);
+      if (existingEmail.rows.length > 0) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Email already in use' });
+      }
+
+      const emailUpdate = await client.query('UPDATE users SET email = $1, updated_at = NOW() WHERE id = $2 RETURNING email', [email, dentistId]);
+      updatedEmail = emailUpdate.rows[0].email;
+    }
+
+    if (passwordChangeProvided) {
+      const userResult = await client.query('SELECT password_hash FROM users WHERE id = $1', [dentistId]);
+      if (userResult.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      const isMatch = await bcrypt.compare(current_password, userResult.rows[0].password_hash);
+      if (!isMatch) {
+        await client.query('ROLLBACK');
+        return res.status(401).json({ error: 'Current password is incorrect' });
+      }
+
+      const hashedPassword = await bcrypt.hash(new_password, 10);
+      await client.query('UPDATE users SET password_hash = $1, updated_at = NOW() WHERE id = $2', [hashedPassword, dentistId]);
+    }
+
+    await client.query('COMMIT');
+
+    const response = { profile: profileResult || null };
+    if (updatedEmail) {
+      response.email = updatedEmail;
+    }
+    response.message = 'Profile updated successfully';
+
+    return res.json(response);
   } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
     console.error('Update profile error:', err);
     return res.status(500).json({ error: 'Unable to update profile' });
+  } finally {
+    client.release();
   }
 };
